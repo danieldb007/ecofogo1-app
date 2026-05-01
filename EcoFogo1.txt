@@ -1,12 +1,3 @@
-EcoFogo
-
-Código de implantação
-AKfycbwRYIlK5DQP84S_TjzPbgVkLD2isubr-Kh5nWfReWXYMEVJulod3zjfy_O4ABHdSIkX
-
-App da Web
-URL
-https://script.google.com/macros/s/AKfycbwRYIlK5DQP84S_TjzPbgVkLD2isubr-Kh5nWfReWXYMEVJulod3zjfy_O4ABHdSIkX/exec
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
