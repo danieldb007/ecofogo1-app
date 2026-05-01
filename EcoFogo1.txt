@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <!-- Faz o site se comportar como app no celular (não permite dar zoom) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Diz aos celulares que isso é um aplicativo (PWA) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>EcoFogo App (Modo Tático)</title>
+    <!-- Adiciona o Tailwind CSS para deixar bonito sem esforço -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ajustes finos para parecer um app de verdade */
+        body { -webkit-tap-highlight-color: transparent; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans pb-20">
+
+    <!-- Cabeçalho Fixo -->
+    <header class="bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-50 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold">EcoFogo App</h1>
+            <p class="text-xs text-emerald-200">Operação Oeste Goiano</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold bg-emerald-800 px-3 py-1.5 rounded-full shadow-inner">
+            <span id="network-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="network-text">Pronto</span>
+        </div>
+    </header>
+
+    <!-- Notificações Flutuantes (Toast) -->
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden bg-slate-800 text-white px-4 py-3 rounded-lg shadow-xl text-sm font-medium transition-opacity duration-300 w-11/12 max-w-sm text-center">
+        Mensagem
+    </div>
+
+    <main class="p-4 max-w-md mx-auto">
+        
+        <!-- TELA 1: FORMULÁRIO DE COLETA -->
+        <div id="view-form" class="tab-content active space-y-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-700 border-b pb-3 mb-4">Novo Achado Pericial</h2>
+                
+                <form id="ecoForm" class="space-y-4">
+                    
+                    <!-- Tipo de Achado -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">Categoria *</label>
+                        <select id="tipoAchado" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all">
+                            <option value="">Selecione...</option>
+                            <option value="Carcaça (Fauna)">Carcaça (Fauna)</option>
+                            <option value="Animal Resgatado">Animal Resgatado (Vivo)</option>
+                            <option value="Foco de Calor">Foco de Calor Ativo</option>
+                            <option value="Vestígio">Vestígio (Pegadas/Fezes)</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+
+                    <!-- Localização -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">Coordenadas (GPS) *</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="gpsCoords" readonly required placeholder="Aguardando GPS..." class="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 text-sm text-slate-600 font-mono outline-none">
+                            <button type="button" onclick="capturarGPS()" class="bg-emerald-100 text-emerald-700 p-3 rounded-xl border border-emerald-200 hover:bg-emerald-200 active:scale-95 transition-all flex items-center justify-center shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Descrição -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">Descrição do Cenário</label>
+                        <textarea id="descricao" rows="3" placeholder="Detalhes da espécie, grau de carbonização, etc." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"></textarea>
+                    </div>
+
+                    <!-- Câmera (Foto 1) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-600 mb-1">Evidência Fotográfica</label>
+                        <div class="relative w-full h-40 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center overflow-hidden" id="fotoContainer">
+                            <input type="file" id="fotoInput" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="processarFoto(event)">
+                            <div id="fotoPlaceholder" class="text-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-slate-400 mb-2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                                <span class="text-sm text-slate-500 font-medium">Tocar para Fotografar</span>
+                            </div>
+                            <img id="fotoPreview" class="hidden w-full h-full object-cover">
+                        </div>
+                        <input type="hidden" id="fotoBase64">
+                    </div>
+
+                    <!-- Botão Salvar -->
+                    <button type="submit" class="w-full mt-4 bg-emerald-600 text-white font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-emerald-700 active:bg-emerald-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        Salvar Offline
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TELA 2: FILA DE SINCRONIZAÇÃO -->
+        <div id="view-sync" class="tab-content space-y-4">
+            <div class="flex justify-between items-end mb-2 px-1">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">Fila de Envio</h2>
+                    <p class="text-sm text-slate-500"><span id="contadorFila">0</span> itens aguardando rede.</p>
+                </div>
+                <button onclick="sincronizarDados()" id="btnSync" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold shadow-md active:scale-95 transition-all flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Enviar Tudo
+                </button>
+            </div>
+
+            <div id="listaRegistros" class="space-y-3">
+                <!-- Os registros salvos offline aparecerão aqui -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Navegação Inferior -->
+    <nav class="fixed bottom-0 w-full bg-white border-t border-slate-200 flex justify-around p-2 pb-safe shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-40">
+        <button onclick="mudarAba('form')" id="tab-form" class="flex flex-col items-center p-2 w-1/2 text-emerald-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+            <span class="text-xs font-bold">Coletar</span>
+        </button>
+        
+        <button onclick="mudarAba('sync')" id="tab-sync" class="flex flex-col items-center p-2 w-1/2 text-slate-400 hover:text-slate-600 transition-colors relative">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-1"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span class="text-xs font-bold">Sincronizar</span>
+            <span id="badgeFila" class="absolute top-1 right-1/4 translate-x-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+        </button>
+    </nav>
+
+    <script>
+        // === CONFIGURAÇÃO CRÍTICA ===
+        // COLE AQUI A URL DO SEU GOOGLE APPS SCRIPT (Parte 1)
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRYIlK5DQP84S_TjzPbgVkLD2isubr-Kh5nWfReWXYMEVJulod3zjfy_O4ABHdSIkX/exec"; 
+
+        // === Lógica do Aplicativo ===
+        
+        // Exibir Notificações
+        function mostrarToast(mensagem, cor = 'bg-slate-800') {
+            const toast = document.getElementById('toast');
+            toast.textContent = mensagem;
+            toast.className = `fixed top-20 left-1/2 transform -translate-x-1/2 z-50 ${cor} text-white px-4 py-3 rounded-lg shadow-xl text-sm font-medium transition-opacity duration-300 w-11/12 max-w-sm text-center`;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // Navegação de Abas
+        function mudarAba(abaId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + abaId).classList.add('active');
+            
+            document.getElementById('tab-form').classList.replace(abaId === 'form' ? 'text-slate-400' : 'text-emerald-600', abaId === 'form' ? 'text-emerald-600' : 'text-slate-400');
+            document.getElementById('tab-sync').classList.replace(abaId === 'sync' ? 'text-slate-400' : 'text-emerald-600', abaId === 'sync' ? 'text-emerald-600' : 'text-slate-400');
+            
+            if(abaId === 'sync') atualizarListaFila();
+        }
+
+        // Capturar GPS
+        function capturarGPS() {
+            if (!navigator.geolocation) {
+                mostrarToast('Seu celular não suporta GPS pelo navegador.', 'bg-red-600');
+                return;
+            }
+            mostrarToast('Buscando satélites...', 'bg-blue-600');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude.toFixed(6);
+                    const lng = pos.coords.longitude.toFixed(6);
+                    document.getElementById('gpsCoords').value = `${lat}, ${lng}`;
+                    mostrarToast('GPS cravado!', 'bg-emerald-600');
+                },
+                (err) => mostrarToast('Erro no GPS. Ative a localização.', 'bg-red-600'),
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // Processar Foto (Reduzir tamanho para não travar o celular offline)
+        function processarFoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    // Reduz para máx 800px para economizar memória (Storage Limit)
+                    const MAX_WIDTH = 800;
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                    
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const base64 = canvas.toDataURL('image/jpeg', 0.6); // Compressão
+                    
+                    document.getElementById('fotoBase64').value = base64;
+                    document.getElementById('fotoPreview').src = base64;
+                    document.getElementById('fotoPreview').classList.remove('hidden');
+                    document.getElementById('fotoPlaceholder').classList.add('hidden');
+                    document.getElementById('fotoContainer').classList.replace('border-slate-300', 'border-emerald-500');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Salvar no Banco de Dados Local (Offline)
+        document.getElementById('ecoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const novoRegistro = {
+                ID: 'ECO-' + Date.now().toString(36).toUpperCase(),
+                Data_Hora: new Date().toLocaleString('pt-BR'),
+                Latitude_Longitude: document.getElementById('gpsCoords').value,
+                Tipo_de_Achado: document.getElementById('tipoAchado').value,
+                Descricao_Cenario: document.getElementById('descricao').value,
+                Foto_Evidencia: document.getElementById('fotoBase64').value
+            };
+
+            // Salva na memória do navegador (LocalStorage)
+            let registros = JSON.parse(localStorage.getItem('ecoFogoDb')) || [];
+            registros.push(novoRegistro);
+            localStorage.setItem('ecoFogoDb', JSON.stringify(registros));
+
+            mostrarToast('Salvo em segurança no celular!', 'bg-emerald-600');
+            
+            // Limpar form
+            this.reset();
+            document.getElementById('fotoBase64').value = '';
+            document.getElementById('fotoPreview').classList.add('hidden');
+            document.getElementById('fotoPlaceholder').classList.remove('hidden');
+            document.getElementById('fotoContainer').classList.replace('border-emerald-500', 'border-slate-300');
+            
+            atualizarContadores();
+        });
+
+        // Atualizar Tela de Fila
+        function atualizarListaFila() {
+            const lista = document.getElementById('listaRegistros');
+            const registros = JSON.parse(localStorage.getItem('ecoFogoDb')) || [];
+            
+            if (registros.length === 0) {
+                lista.innerHTML = `<div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-500">Nenhum dado pendente na memória.</div>`;
+                return;
+            }
+
+            lista.innerHTML = registros.map((reg, index) => `
+                <div class="bg-white p-4 rounded-xl border border-l-4 border-l-amber-500 border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-1 rounded">${reg.Tipo_de_Achado}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">${reg.ID}</span>
+                    </div>
+                    <p class="text-xs text-slate-600 mb-1 flex items-center gap-1 font-mono">📍 ${reg.Latitude_Longitude}</p>
+                    <p class="text-sm text-slate-800 line-clamp-2">${reg.Descricao_Cenario || "Sem notas."}</p>
+                    <div class="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
+                        <span class="text-[10px] text-slate-400">${reg.Data_Hora}</span>
+                        <button onclick="apagarRegistroLocal(${index})" class="text-red-500 text-xs font-semibold hover:underline">Descartar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function apagarRegistroLocal(index) {
+            if(confirm("Apagar esta evidência do celular? Isso não pode ser desfeito.")) {
+                let registros = JSON.parse(localStorage.getItem('ecoFogoDb')) || [];
+                registros.splice(index, 1);
+                localStorage.setItem('ecoFogoDb', JSON.stringify(registros));
+                atualizarListaFila();
+                atualizarContadores();
+            }
+        }
+
+        function atualizarContadores() {
+            const qtd = (JSON.parse(localStorage.getItem('ecoFogoDb')) || []).length;
+            document.getElementById('contadorFila').innerText = qtd;
+            const badge = document.getElementById('badgeFila');
+            if (qtd > 0) {
+                badge.innerText = qtd;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- MÁGICA DA SINCRONIZAÇÃO (Envio para a Planilha) ---
+        async function sincronizarDados() {
+            const registros = JSON.parse(localStorage.getItem('ecoFogoDb')) || [];
+            
+            if (registros.length === 0) {
+                mostrarToast('Não há dados para enviar.', 'bg-slate-600');
+                return;
+            }
+
+            if (!navigator.onLine) {
+                mostrarToast('Você está sem internet no momento.', 'bg-red-600');
+                return;
+            }
+
+            if (SCRIPT_URL === "SUA_URL_DO_APPS_SCRIPT_AQUI") {
+                mostrarToast('Configure a SCRIPT_URL no código fonte!', 'bg-red-600');
+                return;
+            }
+
+            const btn = document.getElementById('btnSync');
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Enviando...`;
+            btn.disabled = true;
+
+            let enviadosComSucesso = 0;
+
+            for (let i = 0; i < registros.length; i++) {
+                const dado = registros[i];
+                try {
+                    // Prepara os dados para enviar como um formulário (POST)
+                    const formData = new URLSearchParams();
+                    for (const key in dado) {
+                        formData.append(key, dado[key]);
+                    }
+
+                    // Envia para o Google Apps Script
+                    const resposta = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: formData,
+                        mode: 'no-cors' // Necessário para evitar bloqueios de segurança do Google
+                    });
+                    
+                    enviadosComSucesso++;
+                } catch (erro) {
+                    console.error("Falha ao enviar:", erro);
+                }
+            }
+
+            // Remove da memória apenas os que foram enviados
+            registros.splice(0, enviadosComSucesso);
+            localStorage.setItem('ecoFogoDb', JSON.stringify(registros));
+            
+            atualizarListaFila();
+            atualizarContadores();
+            
+            btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Enviar Tudo`;
+            btn.disabled = false;
+
+            if (enviadosComSucesso > 0) {
+                mostrarToast(`${enviadosComSucesso} achado(s) salvo(s) na Planilha!`, 'bg-emerald-600');
+            } else {
+                mostrarToast('Falha na rede. Tente de novo.', 'bg-red-600');
+            }
+        }
+
+        // Inicialização
+        atualizarContadores();
+        window.addEventListener('online', () => {
+            document.getElementById('network-indicator').classList.replace('bg-red-500', 'bg-emerald-400');
+            document.getElementById('network-text').innerText = 'Online';
+        });
+        window.addEventListener('offline', () => {
+            document.getElementById('network-indicator').classList.replace('bg-emerald-400', 'bg-red-500');
+            document.getElementById('network-text').innerText = 'Modo Área Fria';
+        });
+    </script>
+</body>
+</html>
